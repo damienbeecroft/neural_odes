@@ -90,8 +90,6 @@ class NeuralODE(nn.Module): # Neural ODE with one hidden layer
             # self.A = self.A - self.eps*((self.A).grad)
             # self.B = self.B - self.eps*((self.B).grad)
 
-            
-
 
 
 

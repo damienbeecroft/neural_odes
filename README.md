@@ -1,0 +1,2 @@
+# neural_odes
+This is a project for AMATH 575 (Dynamical Systems) at the University of Washington. We reproduce results from the seminal paper Neural Ordinary Differential Equations by Chen et al.: https://arxiv.org/pdf/1806.07366.pdf. We also go on to analyze the behavior of the adjoint equation for different ODEs.
