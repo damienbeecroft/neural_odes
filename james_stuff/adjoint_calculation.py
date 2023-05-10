@@ -1,4 +1,5 @@
 import torch
+from torchdiffeq import odeint
 def adjoint_calculate(t, y, func, method, tol):
     ''' Adapted from torchdiffeq so that I can plot and save values of adjoint. 
         Input is timesteps for eval, state over time (outputted from solver) and solver parameters. '''
@@ -7,7 +8,7 @@ def adjoint_calculate(t, y, func, method, tol):
         adjoint_method = method
         adjoint_params = tuple(list(func.parameters()))
         grad_y = torch.zeros_like(y)
-        grad_y[:, 0] = 1 / len(t) # Loss is mean, so need 1 / len
+        grad_y.fill_(1 / y.nelement()) # FOR MEAN TASK, WHERE GRAD IS JUST 1/TIMESTEPS.
 
         ##################################
         #      Set up initial state      #
@@ -36,9 +37,7 @@ def adjoint_calculate(t, y, func, method, tol):
                 # If using an adaptive solver we don't want to waste time resolving dL/dt unless we need it (which
                 # doesn't necessarily even exist if there is piecewise structure in time), so turning off gradients
                 # wrt t here means we won't compute that if we don't need it.
-                func_eval = func(t, y) # RETURNS TUPLE, NEED TO CONCAT. SEE BELOW.
-                cat = [x.reshape(-1) for x in func_eval]
-                func_eval = torch.cat(cat)
+                func_eval = func(t, y)
 
                 # Workaround for PyTorch bug #39784
                 _t = torch.as_strided(t, (), ())  # noqa
