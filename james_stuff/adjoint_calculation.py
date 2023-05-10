@@ -1,16 +1,4 @@
-import argparse
-import matplotlib.pyplot as plt
-import numpy as np
-
 import torch
-import torch.nn as nn
-
-from torchdiffeq import odeint, odeint_adjoint
-from torchdiffeq import odeint_event
-import os
-import time
-from torch import jit
-
 def adjoint_calculate(t, y, func, method, tol):
     ''' Adapted from torchdiffeq so that I can plot and save values of adjoint. 
         Input is timesteps for eval, state over time (outputted from solver) and solver parameters. '''
