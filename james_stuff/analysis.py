@@ -41,7 +41,7 @@ def visualize(y, ax):
 if __name__ == '__main__':
     tol = 1e-4
     ode = Lambda()
-    true_y = odeint_adjoint(ode, true_y0, t, method=args.method, rtol = tol, atol = tol)
+    true_y = odeint(ode, true_y0, t, method=args.method, rtol = tol, atol = tol)
 
     loss = torch.mean(true_y)
 #    loss.backward()
