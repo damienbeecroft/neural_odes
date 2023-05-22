@@ -1,0 +1,32 @@
+png1 (folder): This folder contains the visualizations of the sample trajectories of the neural ODE, func, every 20 batches over 1000 batches.
+
+    Initial Condition:
+    [2,0]
+
+    Objective ODE:
+    y' = -0.1 * x^3 + 2.0 * y^3
+    x' = -2.0 * x^3 + -0.1 * y^3
+
+    Neuaral net:         
+    self.net = nn.Sequential(
+            nn.Linear(2, 50),
+            nn.Tanh(),
+            nn.Linear(50, 2),
+        )
+
+
+cubic20000its.png (png): Loss versus number of batches, visualization every 200 batches over 20000 batches.
+
+    Initial Condition:
+    [2,0]
+
+    Objective ODE:
+    y' = -0.1 * x^3 + 2.0 * y^3
+    x' = -2.0 * x^3 + -0.1 * y^3
+
+    Neuaral net:         
+    self.net = nn.Sequential(
+            nn.Linear(2, 50),
+            nn.Tanh(),
+            nn.Linear(50, 2),
+        )
