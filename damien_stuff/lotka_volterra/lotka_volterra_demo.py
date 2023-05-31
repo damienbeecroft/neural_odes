@@ -12,7 +12,7 @@ from torchdiffeq import odeint
 
 # Code adapted from Ricky Chen's ode_demo.py, found at https://github.com/rtqichen/torchdiffeq/tree/master/examples
 
-name = 'backprop_cubic_nn2_1_100000_1000' # name of files/folders ouput
+name = 'nothing' # name of files/folders ouput
 
 parser = argparse.ArgumentParser('ODE demo')
 parser.add_argument('--method', type=str, choices=['dopri5', 'adams'], default='dopri5')
@@ -34,19 +34,37 @@ else:
 device = torch.device('cuda:' + str(args.gpu) if torch.cuda.is_available() else 'cpu')
 device = 'cpu'
 
-true_y0 = torch.tensor([[2., 0.]]).to(device)
+# true_y0 = torch.tensor([[2., 0.]]).to(device)
+# t = torch.linspace(0., 25., args.data_size).to(device)
+# true_A = torch.tensor([[-0.1, 2.0], [-2.0, -0.1]]).to(device)
+
+# class Lambda(nn.Module):
+#     '''
+#     True ODE:
+#     y' = -0.1 * x^3 + 2.0 * y^3
+#     x' = -2.0 * x^3 + -0.1 * y^3
+#     '''
+#     def forward(self, t, y):
+#         return torch.mm(y**3, true_A)
+
+true_y0 = torch.tensor([[1.,1.]]).to(device)
 t = torch.linspace(0., 25., args.data_size).to(device)
-true_A = torch.tensor([[-0.1, 2.0], [-2.0, -0.1]]).to(device)
+true_A = torch.tensor([[2/3, 4/3], [1.0, 1.0]]).to(device)
 
 class Lambda(nn.Module):
     '''
     True ODE:
-    y' = -0.1 * x^3 + 2.0 * y^3
-    x' = -2.0 * x^3 + -0.1 * y^3
+    y' = x * (2/3 - 4/3 * y)
+    x' = -y * (1 - x)
     '''
     def forward(self, t, y):
-        return torch.mm(y**3, true_A)
-
+        # return torch.mm(y**3, true_A)
+        # y = y[0]
+        # print(type(y[0]))
+        # print(y[0])
+        # print(y[1])
+        return torch.tensor([[y[0][0]*(true_A[0,0] - true_A[0,1]*y[0][1]), -y[0][1]*(true_A[1,0] - true_A[1,1]*y[0][0])]])
+    
 # Get true solution data of the ODE using the Lambda() class
 with torch.no_grad():
     true_y = odeint(Lambda(), true_y0, t, method='dopri5')
@@ -86,7 +104,7 @@ def visualize(true_y, pred_y, odefunc, itr):
         ax_traj.plot(t.cpu().numpy(), true_y.cpu().numpy()[:, 0, 0], t.cpu().numpy(), true_y.cpu().numpy()[:, 0, 1], 'g-')
         ax_traj.plot(t.cpu().numpy(), pred_y.cpu().numpy()[:, 0, 0], '--', t.cpu().numpy(), pred_y.cpu().numpy()[:, 0, 1], 'b--')
         ax_traj.set_xlim(t.cpu().min(), t.cpu().max())
-        ax_traj.set_ylim(-2, 2)
+        ax_traj.set_ylim(0, 2)
         ax_traj.legend()
 
         ax_phase.cla()
@@ -95,8 +113,8 @@ def visualize(true_y, pred_y, odefunc, itr):
         ax_phase.set_ylabel('y')
         ax_phase.plot(true_y.cpu().numpy()[:, 0, 0], true_y.cpu().numpy()[:, 0, 1], 'g-')
         ax_phase.plot(pred_y.cpu().numpy()[:, 0, 0], pred_y.cpu().numpy()[:, 0, 1], 'b--')
-        ax_phase.set_xlim(-2, 2)
-        ax_phase.set_ylim(-2, 2)
+        ax_phase.set_xlim(0, 2)
+        ax_phase.set_ylim(0, 1.5)
 
         ax_vecfield.cla()
         ax_vecfield.set_title('Learned Vector Field')
@@ -110,8 +128,8 @@ def visualize(true_y, pred_y, odefunc, itr):
         dydt = dydt.reshape(21, 21, 2)
 
         ax_vecfield.streamplot(x, y, dydt[:, :, 0], dydt[:, :, 1], color="black")
-        ax_vecfield.set_xlim(-2, 2)
-        ax_vecfield.set_ylim(-2, 2)
+        ax_vecfield.set_xlim(0, 2)
+        ax_vecfield.set_ylim(0, 2)
 
         fig.tight_layout()
         plt.savefig(name + '/{:03d}'.format(itr))
@@ -127,24 +145,8 @@ class ODEFunc(nn.Module):
         # Two out of three of the segments should be commented out.
 
         # Train the 2x2 coefficient matrix of the cubic oscillator. Should converge to true_A
-        # self.net = nn.Sequential(
-        #     nn.Linear(2,2)
-        # )
-
-        # # Train a neural net with a single hidden layer. This one does not converge well
-        # self.net = nn.Sequential(
-        #     nn.Linear(2, 50),
-        #     nn.Tanh(),
-        #     nn.Linear(50, 2),
-        # )
-
-        # Train a neural net with a two hidden layers. This one does not converge well
         self.net = nn.Sequential(
-            nn.Linear(2, 50),
-            nn.Tanh(),
-            nn.Linear(50, 50),
-            nn.Tanh(),
-            nn.Linear(50, 2),
+            nn.Linear(5,2)
         )
 
         for m in self.net.modules():
@@ -154,7 +156,16 @@ class ODEFunc(nn.Module):
 
     def forward(self, t, y):
         # return self.net(y**3)
-        return self.net(y)
+        print(y.shape)
+        y0 = y[:,0,0].reshape(-1,1)
+        y1 = y[:,0,1].reshape(-1,1)
+        a = y0**2
+        b = y0*y1
+        c = y1**2
+        input = torch.cat((y0,y1,a,b,c),1).reshape(20,1,5)
+        # input = torch.tensor([[y[0][0],y[0][1],y[0][0]**2,y[0][1]*y[0][0],y[0][1]**2]])
+        # torch.tensor([[y0,y1,a,b,c]])
+        return self.net(input)
 
 
 class RunningAverageMeter(object):
@@ -183,8 +194,8 @@ if __name__ == '__main__':
     loss_tracker = torch.tensor([]) # records the loss each epoch
 
 
-    num_its = 100000 # number of epochs to run
-    test_freq = 1000 # how often to sample the output of the test
+    num_its = 5000 # number of epochs to run
+    test_freq = 100 # how often to sample the output of the test
 
     ii = 0
 
@@ -198,6 +209,7 @@ if __name__ == '__main__':
     loss_meter = RunningAverageMeter(0.97)
 
     for itr in range(1, num_its + 1):
+        # print(itr)
         optimizer.zero_grad()
         batch_y0, batch_t, batch_y = get_batch()
         pred_y = odeint(func, batch_y0, batch_t).to(device)
@@ -214,31 +226,31 @@ if __name__ == '__main__':
                 loss = torch.mean(torch.abs(pred_y - true_y))
                 loss_tracker = torch.cat((loss_tracker,loss.reshape(1)),dim=0) # concatenate to the loss_tracker
                 print('Iter {:04d} | Total Loss {:.6f}'.format(itr, loss.item()))
-                # visualize(true_y, pred_y, func, ii) # visualise if --viz option was set
+                visualize(true_y, pred_y, func, ii) # visualise if --viz option was set
                 end = time.time()
 
-                save = {
-                    'optim': optimizer.state_dict(), # save optimizer
-                    'func': func.state_dict(), # save trained network
-                    'loss_tracker': loss_tracker, # save the loss tracking
-                    'time_meter': time_meter, # time meter with weight 0.97
-                    'epochs': range(0,num_its,test_freq), # save when the loss was recorded
-                    'num_its': num_its,
-                    'test_freq': test_freq,
-                    'itr': itr,
-                }
-                torch.save(save, name + '.pt')
+                # save = {
+                #     'optim': optimizer.state_dict(), # save optimizer
+                #     'func': func.state_dict(), # save trained network
+                #     'loss_tracker': loss_tracker, # save the loss tracking
+                #     'time_meter': time_meter, # time meter with weight 0.97
+                #     'epochs': range(0,num_its,test_freq), # save when the loss was recorded
+                #     'num_its': num_its,
+                #     'test_freq': test_freq,
+                #     'itr': itr,
+                # }
+                # torch.save(save, name + '.pt')
                 ii += 1
         
-        # end = time.time()
+        end = time.time()
 
-    # save = {
-    #     'optim': optimizer.state_dict(), # save optimizer
-    #     'func': func.state_dict(), # save trained network
-    #     'loss_tracker': loss_tracker, # save the loss tracking
-    #     'time_meter': time_meter, # time meter with weight 0.97
-    #     'epochs': range(0,num_its,test_freq), # save when the loss was recorded
-    #     'num_its': num_its,
-    #     'test_freq': test_freq
-    # }
-    # torch.save(save, name + '.pt')
+    save = {
+        'optim': optimizer.state_dict(), # save optimizer
+        'func': func.state_dict(), # save trained network
+        'loss_tracker': loss_tracker, # save the loss tracking
+        'time_meter': time_meter, # time meter with weight 0.97
+        'epochs': range(0,num_its,test_freq), # save when the loss was recorded
+        'num_its': num_its,
+        'test_freq': test_freq
+    }
+    torch.save(save, name + '.pt')

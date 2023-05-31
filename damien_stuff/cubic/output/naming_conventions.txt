@@ -1,0 +1,39 @@
+Here are the naming conventions for the .pt files in data and the folders in viz. Note that I used the same naming conventions for both.
+The conventions are as follows.
+
+[training type]_[ode type]_[neural net type]_[exponent]_[number of batches]_[frequency of loss reporting]
+
+[training type]:
+This is the method used to compute the loss gradient of the method. It is either the backpropagation [backprop] or adjoint method [adjoint].
+
+[ode_type]:
+This is the type of ODE that we are attempting to learn.
+    - [cubic]
+        y' = -0.1 * x^3 + 2.0 * y^3
+        x' = -2.0 * x^3 + -0.1 * y^3
+
+[neural net type]:
+This is the object that the input is passed through in the forward pass
+    - [lin]
+        self.net = nn.Sequential(
+            nn.Linear(2,2)
+        )
+
+    - [nn]
+        self.net = nn.Sequential(
+            nn.Linear(2, 50),
+            nn.Tanh(),
+            nn.Linear(50, 2),
+        )
+
+[exponent]:
+This is the exponent that the input is raised to element-wise before being passed into the neural network.
+
+[number_of_batches]:
+This is the number of batches that are used for training.
+
+[frequency of loss reporting]:
+This is the frequency at which the loss is reported. Cryptic nomenclature, I know ;)
+
+
+

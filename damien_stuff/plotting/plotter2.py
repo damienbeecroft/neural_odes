@@ -76,47 +76,47 @@ if args.viz:
 
 
 def visualize(true_y, pred_y, odefunc, itr):
+    with torch.no_grad():
+        if args.viz:
 
-    if args.viz:
+            ax_traj.cla()
+            ax_traj.set_title('Trajectories')
+            ax_traj.set_xlabel('t')
+            ax_traj.set_ylabel('x,y')
+            ax_traj.plot(t.cpu().numpy(), true_y.cpu().numpy()[:, 0, 0], t.cpu().numpy(), true_y.cpu().numpy()[:, 0, 1], 'g-')
+            ax_traj.plot(t.cpu().numpy(), pred_y.cpu().numpy()[:, 0, 0], '--', t.cpu().numpy(), pred_y.cpu().numpy()[:, 0, 1], 'b--')
+            ax_traj.set_xlim(t.cpu().min(), t.cpu().max())
+            ax_traj.set_ylim(-2, 2)
+            ax_traj.legend()
 
-        ax_traj.cla()
-        ax_traj.set_title('Trajectories')
-        ax_traj.set_xlabel('t')
-        ax_traj.set_ylabel('x,y')
-        ax_traj.plot(t.cpu().numpy(), true_y.cpu().numpy()[:, 0, 0], t.cpu().numpy(), true_y.cpu().numpy()[:, 0, 1], 'g-')
-        ax_traj.plot(t.cpu().numpy(), pred_y.cpu().numpy()[:, 0, 0], '--', t.cpu().numpy(), pred_y.cpu().numpy()[:, 0, 1], 'b--')
-        ax_traj.set_xlim(t.cpu().min(), t.cpu().max())
-        ax_traj.set_ylim(-2, 2)
-        ax_traj.legend()
+            ax_phase.cla()
+            ax_phase.set_title('Phase Portrait')
+            ax_phase.set_xlabel('x')
+            ax_phase.set_ylabel('y')
+            ax_phase.plot(true_y.cpu().numpy()[:, 0, 0], true_y.cpu().numpy()[:, 0, 1], 'g-')
+            ax_phase.plot(pred_y.cpu().numpy()[:, 0, 0], pred_y.cpu().numpy()[:, 0, 1], 'b--')
+            ax_phase.set_xlim(-2, 2)
+            ax_phase.set_ylim(-2, 2)
 
-        ax_phase.cla()
-        ax_phase.set_title('Phase Portrait')
-        ax_phase.set_xlabel('x')
-        ax_phase.set_ylabel('y')
-        ax_phase.plot(true_y.cpu().numpy()[:, 0, 0], true_y.cpu().numpy()[:, 0, 1], 'g-')
-        ax_phase.plot(pred_y.cpu().numpy()[:, 0, 0], pred_y.cpu().numpy()[:, 0, 1], 'b--')
-        ax_phase.set_xlim(-2, 2)
-        ax_phase.set_ylim(-2, 2)
+            ax_vecfield.cla()
+            ax_vecfield.set_title('Learned Vector Field')
+            ax_vecfield.set_xlabel('x')
+            ax_vecfield.set_ylabel('y')
 
-        ax_vecfield.cla()
-        ax_vecfield.set_title('Learned Vector Field')
-        ax_vecfield.set_xlabel('x')
-        ax_vecfield.set_ylabel('y')
+            y, x = np.mgrid[-2:2:21j, -2:2:21j]
+            dydt = odefunc(0, torch.Tensor(np.stack([x, y], -1).reshape(21 * 21, 2)).to(device)).cpu().detach().numpy()
+            mag = np.sqrt(dydt[:, 0]**2 + dydt[:, 1]**2).reshape(-1, 1)
+            dydt = (dydt / mag)
+            dydt = dydt.reshape(21, 21, 2)
 
-        y, x = np.mgrid[-2:2:21j, -2:2:21j]
-        dydt = odefunc(0, torch.Tensor(np.stack([x, y], -1).reshape(21 * 21, 2)).to(device)).cpu().detach().numpy()
-        mag = np.sqrt(dydt[:, 0]**2 + dydt[:, 1]**2).reshape(-1, 1)
-        dydt = (dydt / mag)
-        dydt = dydt.reshape(21, 21, 2)
+            ax_vecfield.streamplot(x, y, dydt[:, :, 0], dydt[:, :, 1], color="black")
+            ax_vecfield.set_xlim(-2, 2)
+            ax_vecfield.set_ylim(-2, 2)
 
-        ax_vecfield.streamplot(x, y, dydt[:, :, 0], dydt[:, :, 1], color="black")
-        ax_vecfield.set_xlim(-2, 2)
-        ax_vecfield.set_ylim(-2, 2)
-
-        fig.tight_layout()
-        plt.savefig(name + '/{:03d}'.format(itr))
-        plt.draw()
-        plt.pause(0.001)
+            fig.tight_layout()
+            plt.savefig(name + '/{:03d}'.format(itr))
+            plt.draw()
+            plt.pause(0.001)
 
 class ODEFunc(nn.Module):
 
@@ -139,6 +139,7 @@ class ODEFunc(nn.Module):
         # )
 
         # Train a neural net with a two hidden layers. This one does not converge well
+        
         self.net = nn.Sequential(
             nn.Linear(2, 50),
             nn.Tanh(),
@@ -179,56 +180,64 @@ class RunningAverageMeter(object):
 if __name__ == '__main__':
 
     # a_tols = torch.tensor([10**(-k) for k in range(1,6)])
+    data1 = torch.load(r"C:\Users\damie\OneDrive\UW\amath575\project\neural_odes\damien_stuff\cubic\output\data\backprop_cubic_nn2_1_100000_1000.pt")
 
-    loss_tracker = torch.tensor([]) # records the loss each epoch
+    # loss_tracker = torch.tensor([]) # records the loss each epoch
 
 
-    num_its = 100000 # number of epochs to run
-    test_freq = 1000 # how often to sample the output of the test
+    # num_its = 100000 # number of epochs to run
+    # test_freq = 1000 # how often to sample the output of the test
 
     ii = 0
 
     func = ODEFunc().to(device)
+    func.load_state_dict(data1['func'])
     
-    optimizer = optim.RMSprop(func.parameters(), lr=1e-3)
+    # optimizer = optim.RMSprop(func.parameters(), lr=1e-3)
+    # end = time.time()
+    pred_y = odeint(func, true_y0, t)
+    loss = torch.mean(torch.abs(pred_y - true_y))
+    # loss_tracker = torch.cat((loss_tracker,loss.reshape(1)),dim=0) # concatenate to the loss_tracker
+    # print('Iter {:04d} | Total Loss {:.6f}'.format(itr, loss.item()))
+    visualize(true_y, pred_y, func, ii) # visualise if --viz option was set
     end = time.time()
 
-    time_meter = RunningAverageMeter(0.97)
+    # time_meter = RunningAverageMeter(0.97)
     
-    loss_meter = RunningAverageMeter(0.97)
+    # loss_meter = RunningAverageMeter(0.97)
 
-    for itr in range(1, num_its + 1):
-        optimizer.zero_grad()
-        batch_y0, batch_t, batch_y = get_batch()
-        pred_y = odeint(func, batch_y0, batch_t).to(device)
-        loss = torch.mean(torch.abs(pred_y - batch_y))
-        loss.backward()
-        optimizer.step()
+    # for itr in range(1, num_its + 1):
+    #     optimizer.zero_grad()
+    #     batch_y0, batch_t, batch_y = get_batch()
+    #     pred_y = odeint(func, batch_y0, batch_t).to(device)
+    #     loss = torch.mean(torch.abs(pred_y - batch_y))
+    #     loss.backward()
+    #     optimizer.step()
 
-        time_meter.update(time.time() - end)
-        loss_meter.update(loss.item())
+    #     time_meter.update(time.time() - end)
+    #     loss_meter.update(loss.item())
 
-        if itr % test_freq == 0:
-            with torch.no_grad():
-                pred_y = odeint(func, true_y0, t)
-                loss = torch.mean(torch.abs(pred_y - true_y))
-                loss_tracker = torch.cat((loss_tracker,loss.reshape(1)),dim=0) # concatenate to the loss_tracker
-                print('Iter {:04d} | Total Loss {:.6f}'.format(itr, loss.item()))
-                # visualize(true_y, pred_y, func, ii) # visualise if --viz option was set
-                end = time.time()
+    #     if itr % test_freq == 0:
+    #         with torch.no_grad():
+    #             pred_y = odeint(func, true_y0, t)
+    #             loss = torch.mean(torch.abs(pred_y - true_y))
+    #             loss_tracker = torch.cat((loss_tracker,loss.reshape(1)),dim=0) # concatenate to the loss_tracker
+    #             print('Iter {:04d} | Total Loss {:.6f}'.format(itr, loss.item()))
+    #             # visualize(true_y, pred_y, func, ii) # visualise if --viz option was set
+    #             end = time.time()
 
-                save = {
-                    'optim': optimizer.state_dict(), # save optimizer
-                    'func': func.state_dict(), # save trained network
-                    'loss_tracker': loss_tracker, # save the loss tracking
-                    'time_meter': time_meter, # time meter with weight 0.97
-                    'epochs': range(0,num_its,test_freq), # save when the loss was recorded
-                    'num_its': num_its,
-                    'test_freq': test_freq,
-                    'itr': itr,
-                }
-                torch.save(save, name + '.pt')
-                ii += 1
+    #             save = {
+    #                 'optim': optimizer.state_dict(), # save optimizer
+    #                 'func': func.state_dict(), # save trained network
+    #                 'loss_tracker': loss_tracker, # save the loss tracking
+    #                 'time_meter': time_meter, # time meter with weight 0.97
+    #                 'epochs': range(0,num_its,test_freq), # save when the loss was recorded
+    #                 'num_its': num_its,
+    #                 'test_freq': test_freq,
+    #                 'itr': itr,
+    #             }
+    #             torch.save(save, name + '.pt')
+    #             ii += 1
         
         # end = time.time()
 
